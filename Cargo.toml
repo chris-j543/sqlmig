@@ -1,0 +1,11 @@
+[package]
+name = "sqlmig"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Parses and validates sets of SQL migration files without touching a database"
+readme = "README.md"
+
+[lib]
+name = "sqlmig"
+path = "src/lib.rs"
