@@ -65,11 +65,41 @@ Each resulting `Migration` carries an FNV-1a checksum of its `up` and `down`
 bodies, meant for callers that record which migrations ran against a
 database and want to detect a migration file changing after it was applied.
 
+## Planning
+
+Once you have a `Registry`, `plan_apply` and `plan_rollback` diff it against
+whatever list of versions your database says it has already applied.
+Neither one touches a database; you supply the applied versions (however
+you tracked them) and get back a plan to execute yourself:
+
+```rust
+// versions your own bookkeeping table says have already run
+let applied = [1, 2];
+
+let plan = registry.plan_apply(&applied)?;
+for migration in plan.pending {
+    // run migration.up_sql, then record migration.version as applied
+}
+
+// roll everything back past version 1
+let rollback = registry.plan_rollback(&applied, 1)?;
+for migration in rollback {
+    // run migration.down_sql, then remove migration.version from applied
+}
+```
+
+Both fail with `PlanError::AppliedVersionNotInRegistry` if `applied`
+contains a version that isn't in the registry - that means a migration ran
+at some point but its files are gone now, which is worth surfacing rather
+than silently ignoring. `plan_rollback` also fails with
+`PlanError::MissingDownSql` if it would need to roll back a migration that
+was built without a `down.sql`.
+
 ## What this crate does not do
 
-It does not open a database connection, does not execute SQL, and does not
-decide which migrations still need to run against a particular database.
-That's deliberately out of scope for now; see the roadmap below.
+It does not open a database connection and does not execute SQL. Reading
+migration files off disk and actually running them against a database are
+both left to the caller.
 
 ## License
 
