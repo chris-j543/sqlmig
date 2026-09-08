@@ -21,6 +21,14 @@ pub enum PlanError {
     /// Rolling back this version would need its `down.sql`, which the
     /// migration was built without.
     MissingDownSql { version: u64 },
+    /// The `up_sql` on file for this version no longer matches the checksum
+    /// recorded when it was applied, so someone edited a migration after it
+    /// already ran.
+    ChecksumMismatch {
+        version: u64,
+        recorded: u64,
+        current: u64,
+    },
 }
 
 impl fmt::Display for PlanError {
@@ -34,11 +42,27 @@ impl fmt::Display for PlanError {
                 f,
                 "version {version} has no down.sql, so it cannot be rolled back"
             ),
+            PlanError::ChecksumMismatch {
+                version,
+                recorded,
+                current,
+            } => write!(
+                f,
+                "version {version} was applied with checksum {recorded:x} but the file on disk now checksums to {current:x}"
+            ),
         }
     }
 }
 
 impl Error for PlanError {}
+
+/// One migration a caller's bookkeeping says has already run, paired with
+/// the `up_checksum` that was recorded at the time it applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AppliedMigration {
+    pub version: u64,
+    pub up_checksum: u64,
+}
 
 impl Registry {
     fn known_versions(&self) -> BTreeSet<u64> {
@@ -91,5 +115,32 @@ impl Registry {
             }
         }
         Ok(rollback)
+    }
+
+    /// Checks a caller's record of already-applied migrations against the
+    /// `up_sql` this registry has on file for those versions.
+    ///
+    /// Returns the first version whose recorded checksum no longer matches,
+    /// meaning the migration file was edited after it ran against a
+    /// database. Fails with `AppliedVersionNotInRegistry` first if `applied`
+    /// names a version this registry doesn't know about at all.
+    pub fn check_drift(&self, applied: &[AppliedMigration]) -> Result<(), PlanError> {
+        for record in applied {
+            let migration = self
+                .migrations
+                .iter()
+                .find(|m| m.version == record.version)
+                .ok_or(PlanError::AppliedVersionNotInRegistry {
+                    version: record.version,
+                })?;
+            if migration.up_checksum != record.up_checksum {
+                return Err(PlanError::ChecksumMismatch {
+                    version: record.version,
+                    recorded: record.up_checksum,
+                    current: migration.up_checksum,
+                });
+            }
+        }
+        Ok(())
     }
 }

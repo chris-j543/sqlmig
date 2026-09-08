@@ -95,6 +95,20 @@ than silently ignoring. `plan_rollback` also fails with
 `PlanError::MissingDownSql` if it would need to roll back a migration that
 was built without a `down.sql`.
 
+If your own bookkeeping also records the `up_checksum` a migration had when
+it ran, `check_drift` will catch a migration file being edited after the
+fact - a down file changing scope, someone "fixing" an up file in place
+instead of writing a new migration, that kind of thing:
+
+```rust
+use sqlmig::AppliedMigration;
+
+let applied = [
+    AppliedMigration { version: 1, up_checksum: 0x1234 /* from your table */ },
+];
+registry.check_drift(&applied)?; // Err(PlanError::ChecksumMismatch { .. }) if version 1's up.sql changed
+```
+
 ## What this crate does not do
 
 It does not open a database connection and does not execute SQL. Reading

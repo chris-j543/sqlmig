@@ -13,5 +13,5 @@ mod plan;
 mod registry;
 
 pub use migration::{checksum, parse_filename, Direction, Migration, ParseError, ParsedName};
-pub use plan::{ApplyPlan, PlanError};
+pub use plan::{AppliedMigration, ApplyPlan, PlanError};
 pub use registry::{BuildError, Registry};

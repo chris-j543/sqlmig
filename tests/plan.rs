@@ -1,4 +1,4 @@
-use sqlmig::{PlanError, Registry};
+use sqlmig::{AppliedMigration, PlanError, Registry};
 
 fn registry() -> Registry {
     Registry::build(&[
@@ -100,4 +100,61 @@ fn plan_rollback_rejects_an_applied_version_missing_from_the_registry() {
         result,
         Err(PlanError::AppliedVersionNotInRegistry { version: 42 })
     );
+}
+
+#[test]
+fn check_drift_accepts_matching_checksums() {
+    let reg = registry();
+    let up_checksum = reg.migrations[0].up_checksum;
+
+    let result = reg.check_drift(&[AppliedMigration {
+        version: 1,
+        up_checksum,
+    }]);
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn check_drift_catches_an_edited_up_file() {
+    let reg = registry();
+    let current = reg.migrations[0].up_checksum;
+
+    let result = reg.check_drift(&[AppliedMigration {
+        version: 1,
+        up_checksum: current.wrapping_add(1),
+    }]);
+    assert_eq!(
+        result,
+        Err(PlanError::ChecksumMismatch {
+            version: 1,
+            recorded: current.wrapping_add(1),
+            current,
+        })
+    );
+}
+
+#[test]
+fn check_drift_rejects_an_applied_version_missing_from_the_registry() {
+    let reg = registry();
+
+    let result = reg.check_drift(&[AppliedMigration {
+        version: 99,
+        up_checksum: 0,
+    }]);
+    assert_eq!(
+        result,
+        Err(PlanError::AppliedVersionNotInRegistry { version: 99 })
+    );
+}
+
+#[test]
+fn check_drift_ignores_versions_never_reported_as_applied() {
+    let reg = registry();
+
+    // Only version 1 is checked; versions 2 and 3 aren't mentioned at all.
+    let result = reg.check_drift(&[AppliedMigration {
+        version: 1,
+        up_checksum: reg.migrations[0].up_checksum,
+    }]);
+    assert_eq!(result, Ok(()));
 }
