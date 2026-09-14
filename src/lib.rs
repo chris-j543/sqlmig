@@ -8,10 +8,12 @@
 //! just makes sure the set of files is internally consistent before you get
 //! anywhere near a database.
 
+mod fs;
 mod migration;
 mod plan;
 mod registry;
 
+pub use fs::{load_dir, LoadError};
 pub use migration::{checksum, parse_filename, Direction, Migration, ParseError, ParsedName};
 pub use plan::{AppliedMigration, ApplyPlan, PlanError};
 pub use registry::{BuildError, Registry};

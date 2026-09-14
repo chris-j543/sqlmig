@@ -27,24 +27,19 @@ error describing what's wrong.
 
 ## Usage
 
+`sqlmig::load_dir` reads a directory's `.sql` files into `(filename,
+content)` pairs; it's the only part of this crate that touches a filesystem,
+and it's entirely optional; skip it and build the pairs however you like if
+your migrations don't live in a plain directory.
+
 ```rust
-use std::fs;
-use sqlmig::{Registry, BuildError};
+use sqlmig::{load_dir, Registry};
 
 fn load_migrations(dir: &str) -> Result<Registry, Box<dyn std::error::Error>> {
-    let mut files = Vec::new();
-    let mut contents = Vec::new();
-
-    for entry in fs::read_dir(dir)? {
-        let path = entry?.path();
-        contents.push(fs::read_to_string(&path)?);
-        files.push(path.file_name().unwrap().to_string_lossy().into_owned());
-    }
-
+    let files = load_dir(dir)?;
     let pairs: Vec<(&str, &str)> = files
         .iter()
-        .map(String::as_str)
-        .zip(contents.iter().map(String::as_str))
+        .map(|(name, content)| (name.as_str(), content.as_str()))
         .collect();
 
     Registry::build(&pairs).map_err(|e| e.into())
