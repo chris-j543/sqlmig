@@ -47,14 +47,20 @@ fn load_migrations(dir: &str) -> Result<Registry, Box<dyn std::error::Error>> {
 ```
 
 A filename must look like `VERSION_NAME.up.sql` or `VERSION_NAME.down.sql`,
-where `VERSION` is an unsigned integer (leading zeros allowed) and `NAME` is
-ASCII letters, digits, and underscores. Building a registry fails if:
+where `VERSION` is an unsigned integer (leading zeros allowed, but not zero
+itself - see below) and `NAME` is ASCII letters, digits, and underscores.
+Building a registry fails if:
 
 - two `up` files claim the same version number (including `0001` colliding
   with `1`)
 - two `down` files claim the same version number
 - a `down` file exists with no matching `up` file
 - the `up` and `down` files for a version disagree on the migration name
+
+Version 0 is reserved and can't be used by a migration file - `parse_filename`
+rejects it with `ParseError::ZeroVersion`. Migrations are numbered from 1, and
+0 is left free to mean "nothing has been applied yet," which is the sentinel
+`plan_rollback` uses for "roll back everything" below.
 
 Each resulting `Migration` carries an FNV-1a checksum of its `up` and `down`
 bodies, meant for callers that record which migrations ran against a

@@ -29,6 +29,10 @@ pub enum ParseError {
     MissingName,
     /// The version segment is empty, non-numeric, or too large for a u64.
     InvalidVersion,
+    /// The version segment is literally zero. Zero is reserved to mean "no
+    /// migrations applied" (see `Registry::plan_rollback`), so no migration
+    /// file may claim it.
+    ZeroVersion,
     /// The name segment is empty or contains characters other than
     /// ASCII letters, digits, and underscores.
     InvalidName,
@@ -42,6 +46,7 @@ impl fmt::Display for ParseError {
             ParseError::InvalidDirection => "direction segment must be exactly \"up\" or \"down\"",
             ParseError::MissingName => "filename is missing a NAME segment after the version",
             ParseError::InvalidVersion => "version segment must be a plain, in-range integer",
+            ParseError::ZeroVersion => "version 0 is reserved and cannot be used by a migration",
             ParseError::InvalidName => "name segment must be ASCII letters, digits, or underscores",
         };
         f.write_str(msg)
@@ -55,6 +60,11 @@ impl Error for ParseError {}
 /// Expects the shape `VERSION_NAME.up.sql` or `VERSION_NAME.down.sql`. The
 /// version may have leading zeros (`0001` and `1` parse to the same value,
 /// which the registry treats as a collision if both appear).
+///
+/// Version 0 is rejected outright. It's reserved to mean "nothing applied
+/// yet" - `Registry::plan_rollback` takes 0 as a target to mean "roll back
+/// every applied migration" - so a real migration can't claim it without
+/// making that sentinel ambiguous.
 pub fn parse_filename(filename: &str) -> Result<ParsedName, ParseError> {
     let parts: Vec<&str> = filename.rsplitn(3, '.').collect();
     if parts.len() != 3 {
@@ -80,6 +90,9 @@ pub fn parse_filename(filename: &str) -> Result<ParsedName, ParseError> {
         return Err(ParseError::InvalidVersion);
     }
     let version: u64 = version_str.parse().map_err(|_| ParseError::InvalidVersion)?;
+    if version == 0 {
+        return Err(ParseError::ZeroVersion);
+    }
 
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         return Err(ParseError::InvalidName);

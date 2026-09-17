@@ -94,7 +94,8 @@ impl Registry {
     ///
     /// A migration is included if it's in `applied` and its version is
     /// greater than `target`. `target` doesn't need to be a real migration
-    /// version; passing 0 rolls back everything.
+    /// version; passing 0 rolls back everything, since 0 is reserved and no
+    /// migration can ever be built with that version.
     pub fn plan_rollback(&self, applied: &[u64], target: u64) -> Result<Vec<&Migration>, PlanError> {
         let known = self.known_versions();
         let applied: BTreeSet<u64> = applied.iter().copied().collect();

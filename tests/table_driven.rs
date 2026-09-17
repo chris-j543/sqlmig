@@ -26,10 +26,11 @@ fn parse_filename_cases() {
             input: "0001__create.up.sql",
             expected: Ok((1, "_create", Direction::Up)),
         },
-        // Version zero is a legal version number at parse time.
+        // Version zero is reserved for "nothing applied yet" and can't be
+        // claimed by a migration.
         Case {
             input: "0_init.up.sql",
-            expected: Ok((0, "init", Direction::Up)),
+            expected: Err(ParseError::ZeroVersion),
         },
         // No numeric prefix at all.
         Case {
