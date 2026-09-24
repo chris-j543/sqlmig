@@ -127,13 +127,9 @@ impl Registry {
     /// names a version this registry doesn't know about at all.
     pub fn check_drift(&self, applied: &[AppliedMigration]) -> Result<(), PlanError> {
         for record in applied {
-            let migration = self
-                .migrations
-                .iter()
-                .find(|m| m.version == record.version)
-                .ok_or(PlanError::AppliedVersionNotInRegistry {
-                    version: record.version,
-                })?;
+            let migration = self.get(record.version).ok_or(PlanError::AppliedVersionNotInRegistry {
+                version: record.version,
+            })?;
             if migration.up_checksum != record.up_checksum {
                 return Err(PlanError::ChecksumMismatch {
                     version: record.version,

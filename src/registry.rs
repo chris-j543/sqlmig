@@ -137,4 +137,15 @@ impl Registry {
 
         Ok(Registry { migrations })
     }
+
+    /// Looks up the migration with the given version, if any.
+    ///
+    /// `migrations` is always kept sorted by version (see `build`), so this
+    /// binary searches rather than scanning.
+    pub fn get(&self, version: u64) -> Option<&Migration> {
+        self.migrations
+            .binary_search_by_key(&version, |m| m.version)
+            .ok()
+            .map(|i| &self.migrations[i])
+    }
 }

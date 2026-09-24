@@ -226,6 +226,26 @@ fn registry_build_cases() {
 }
 
 #[test]
+fn registry_get_finds_by_version_regardless_of_padding() {
+    let registry = Registry::build(&[
+        ("0001_first.up.sql", "-- first"),
+        ("0002_second.up.sql", "-- second"),
+    ])
+    .expect("expected build to succeed");
+
+    let found = registry.get(2).expect("expected version 2 to be present");
+    assert_eq!(found.name, "second");
+
+    // A filename's leading zeros don't survive into the stored version, so
+    // looking up the bare number must still work.
+    let found = registry.get(1).expect("expected version 1 to be present");
+    assert_eq!(found.name, "first");
+
+    assert!(registry.get(3).is_none());
+    assert!(registry.get(0).is_none());
+}
+
+#[test]
 fn a_malformed_filename_reports_which_file_failed() {
     let result = Registry::build(&[("nope.sql", "select 1;")]);
     match result {
